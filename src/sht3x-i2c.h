@@ -27,14 +27,46 @@ public:
   Sht3xi2c(TwoWire& interface);
 
   void begin(uint32_t speed = CLOCK_SPEED_400KHZ);
-  int singleShotRead(float* temp, float* humid, uint8_t accuracy = SHT31_ACCURACY_MEDIUM, uint8_t i2c_addr = 0x44, bool clock_stretching = false);
+  /**
+   * @brief Have sensor make a reading and return the values
+   * 
+   * @param temp A pointer to a double that will be populated with the temperature
+   * @param humid A pointer to a double that will be populated with the humidity
+   * @param accuracy One of SHT31_ACCURACY_HIGH, SHT31_ACCURACY_MEDIUM, or SHT31_ACCURACY_LOW
+   * @param i2c_addr I2C address of the device (0x44 or 0x45)
+   * @param clock_stretching Whether to use clock stretching or not
+   * 
+   * @retval 0 if success
+   */
+  int single_shot(double* temp, double* humid, uint8_t accuracy = SHT31_ACCURACY_MEDIUM, uint8_t i2c_addr = 0x44, bool clock_stretching = false);
 
-  void process();
+  /**
+   * @brief Start periodic temperature and humidity measurements
+   * 
+   * @param accuracy One of SHT31_ACCURACY_HIGH, SHT31_ACCURACY_MEDIUM, or SHT31_ACCURACY_LOW
+   * @param mps Measurements per second: 10, 4, 2, 1, or 0 (0 is for 0.5)
+   * @param i2c_addr I2C address of the device (0x44 or 0x45)
+   * 
+   * @retval 0 if success
+   */
+  int start_periodic(uint8_t accuracy = SHT31_ACCURACY_MEDIUM, uint8_t mps = 0, uint8_t i2c_addr = 0x44);
+
+  /**
+   * @brief Get the reading from periodic reads. Do not run more often than the mps
+   * 
+   * @param temp A pointer to a double that will be populated with the temperature
+   * @param humid A pointer to a double that will be populated with the humidity
+   * @param i2c_addr I2C address of the device (0x44 or 0x45)
+   * 
+   * @retval 0 if success
+   */
+  int get_reading(double* temp, double* humid, uint8_t i2c_addr = 0x44);
 
 private:
   TwoWire* _wire;
   uint8_t _state;
-  bool _break_command(uint8_t i2c_addr);
+  bool break_command(uint8_t i2c_addr);
+  int pr_get_reading(double* temp, double* humid, uint8_t i2c_addr = 0x44);
 };
 
 // uint8_t i2c_addr = 0x44
