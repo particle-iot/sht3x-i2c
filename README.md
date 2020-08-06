@@ -1,61 +1,114 @@
-# sht3x-i2c
+# sht3x-i2c Library
 
-A Particle library for sht3x-i2c
-
-## Welcome to your library!
-
-To get started, modify the sources in [src](src). Rename the example folder inside [examples](examples) to a more meaningful name and add additional examples in separate folders.
-
-To compile your example you can use `particle compile examples/usage` command in [Particle CLI](https://docs.particle.io/guide/tools-and-features/cli#update-your-device-remotely) or use our [Desktop IDE](https://docs.particle.io/guide/tools-and-features/dev/#compiling-code).
-
-Libraries can also depend on other libraries. To add a dependency use [`particle library add`](https://docs.particle.io/guide/tools-and-features/cli#adding-a-library) or [library management](https://docs.particle.io/guide/tools-and-features/dev/#managing-libraries) in Desktop IDE.
-
-After the library is done you can upload it with `particle library upload` or `Upload` command in the IDE. This will create a private (only visible by you) library that you can use in other projects. If you wish to make your library public, use `particle library publish` or `Publish` command.
-
-_TODO: update this README_
+A library to interface a Particle device to an SHT31 temperature and humidity sensor using I2C
 
 ## Usage
 
-Connect XYZ hardware, add the sht3x-i2c library to your project and follow this simple example:
+The SHT31 has two modes that can be used for reading temperature and humidity:
+* Single Shot: the Particle device will send a command to the sensor, wait for the measurement to complete, and then read the values.
+* Periodic: the Particle device will set the sensor to continuously measure temperature and humidity, which will be available to read at any time.
+
+### Which one should you use?
+
+The Single Shot uses less power, as the sensor goes into idle mode while not measuring. However, the disadvantage is that getting a measurement takes longer since there is a wait time that is required between the command and the time the data is available to be retrieved.
+
+In Periodic mode, data is available to be read immediately. However, this mode uses more power as the sensor is continuously making measurements.
+
+
+## Tracker
+
+Connect the TX/RX of the Asset Tracker SOM or the M8 connector on TrackerOne. Note that these pins are multiplexed between the UART and the Wire3 I2C port.
+
+Some SHT31 boards already include pull-up resistors on SCL and SDA. If your board doesn't include them, make sure to connect 4.7k pull-up resostors on both I2C lines to 3.3V.
+
+If using TrackerOne, the available power is 5V on CAN_5V pin. Since the I/O is not 3.3V compliant, you will need to use a DC to DC converter to connect the power of the SHT31 sensor to 3.3V.
+
+See the example in `periodic/main.cpp` for how to retrieve the temperature and humidity and insert it into the location publish object. This will result in the values being stored in the database along with the location of the Tracker.
 
 ```
+#include "Particle.h"
+
+#include "tracker_config.h"
+#include "tracker.h"
 #include "sht3x-i2c.h"
-Sht3xi2c sht3xi2c;
 
-void setup() {
-  sht3xi2c.begin();
+SYSTEM_THREAD(ENABLED);
+SYSTEM_MODE(SEMI_AUTOMATIC);
+
+PRODUCT_ID(TRACKER_PRODUCT_ID);
+PRODUCT_VERSION(TRACKER_PRODUCT_VERSION);
+
+SerialLogHandler logHandler(115200, LOG_LEVEL_TRACE, {
+    { "app.gps.nmea", LOG_LEVEL_INFO },
+    { "app.gps.ubx",  LOG_LEVEL_INFO },
+    { "ncp.at", LOG_LEVEL_INFO },
+    { "net.ppp.client", LOG_LEVEL_INFO },
+});
+
+Sht3xi2c sensor(Wire3);
+
+void loc_gen_cb(JSONWriter &writer, LocationPoint &point, const void *context)
+{
+    double temp, humid;
+
+    if (sensor.get_reading(&temp, &humid) == 0)
+    {
+        writer.name("sh31_temp").value(temp);
+        writer.name("sh31_humid").value(humid);
+    }
 }
 
-void loop() {
-  sht3xi2c.process();
+void setup()
+{
+    Tracker::instance().init();
+    
+    pinMode(CAN_PWR, OUTPUT);       // Turn on 5V output on M8 connector
+    digitalWrite(CAN_PWR, HIGH);    // Turn on 5V output on M8 connector
+    delay(500);
+
+    sensor.begin(CLOCK_SPEED_400KHZ);
+    sensor.start_periodic();
+
+    Particle.connect();
+}
+
+void loop()
+{
+    Tracker::instance().loop();
 }
 ```
 
-See the [examples](examples) folder for more details.
+## Boron/Argon
 
-## Documentation
+Connect the I2C bus of both devices (SCL and SDA), as well as 3.3V and GND. Some SHT31 boards already include pull-up resistors on SCL and SDA. If your board doesn't include them, make sure to connect 4.7k pull-up resistors on both I2C lines to 3.3V.
 
-TODO: Describe `Sht3xi2c`
+See the example in `single-shot.ino` for how to retrieve the temperature and humidity and print it to the serial port.
 
-## Contributing
+```
+#include "Particle.h"
+#include "sht3x-i2c.h"
 
-Here's how you can make changes to this library and eventually contribute those changes back.
+SerialLogHandler logHandler(LOG_LEVEL_INFO);
 
-To get started, [clone the library from GitHub to your local machine](https://help.github.com/articles/cloning-a-repository/).
+Sht3xi2c sensor(Wire); 
 
-Change the name of the library in `library.properties` to something different. You can add your name at then end.
+void setup()
+{
+    sensor.begin(CLOCK_SPEED_400KHZ);
+}
 
-Modify the sources in <src> and <examples> with the new behavior.
+void loop()
+{
+    static uint32_t timer = System.uptime();
+    double temp, humid;
 
-To compile an example, use `particle compile examples/usage` command in [Particle CLI](https://docs.particle.io/guide/tools-and-features/cli#update-your-device-remotely) or use our [Desktop IDE](https://docs.particle.io/guide/tools-and-features/dev/#compiling-code).
-
-After your changes are done you can upload them with `particle library upload` or `Upload` command in the IDE. This will create a private (only visible by you) library that you can use in other projects. Do `particle library add sht3x-i2c_myname` to add the library to a project on your machine or add the sht3x-i2c_myname library to a project on the Web IDE or Desktop IDE.
-
-At this point, you can create a [GitHub pull request](https://help.github.com/articles/about-pull-requests/) with your changes to the original library. 
-
-If you wish to make your library public, use `particle library publish` or `Publish` command.
-
-## LICENSE
-Copyright 2020 Mariano Goluboff
-
-Licensed under the <insert your choice of license here> license
+    if (System.uptime() - timer > 5)
+    {
+        timer = System.uptime();
+        if (sensor.single_shot(&temp, &humid) == 0)
+        {
+            Log.info("Temperature: %.2f, Humidity: %.2f", temp, humid);
+        }
+    }
+}
+```
