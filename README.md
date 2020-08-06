@@ -61,6 +61,7 @@ void loc_gen_cb(JSONWriter &writer, LocationPoint &point, const void *context)
 void setup()
 {
     Tracker::instance().init();
+    Tracker::instance().location.regLocGenCallback(loc_gen_cb);
     
     pinMode(CAN_PWR, OUTPUT);       // Turn on 5V output on M8 connector
     digitalWrite(CAN_PWR, HIGH);    // Turn on 5V output on M8 connector
