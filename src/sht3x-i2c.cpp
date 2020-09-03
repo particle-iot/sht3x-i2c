@@ -33,10 +33,11 @@ void Sht3xi2c::begin(uint32_t speed)
 {
     if (!_wire->isEnabled())
     {
-        _wire->reset();
         _wire->setSpeed(speed);
         _wire->begin();
     }
+    _wire->reset();
+    _state = SHT31_STATE_IDLE;
 }
 
 int Sht3xi2c::single_shot(double* temp, double* humid, uint8_t accuracy)
