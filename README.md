@@ -21,7 +21,14 @@ Connect the TX/RX of the Asset Tracker SOM or the M8 connector on TrackerOne. No
 
 Some SHT31 boards already include pull-up resistors on SCL and SDA. If your board doesn't include them, make sure to connect 4.7k pull-up resostors on both I2C lines to 3.3V.
 
-If using TrackerOne, the available power is 5V on CAN_5V pin. Since the I/O is not 3.3V compliant, you will need to use a DC to DC converter to connect the power of the SHT31 sensor to 3.3V.
+If using TrackerOne, the available power is 5V on CAN_5V pin. Since the I2C pins are not 5V tolerant, you will need to use a DC to DC converter to connect the power of the SHT31 sensor to 3.3V.
+
+### Tracker ONE
+
+When using the Particle accessory cable shown below, the 5V to 3.3V converter and pull-up resistors are included, so the hardware is ready to go.
+
+![Particle Temp/Humidity cable](img/cable.png)
+
 
 See the example in `periodic/main.cpp` for how to retrieve the temperature and humidity and insert it into the location publish object. This will result in the values being stored in the database along with the location of the Tracker.
 
@@ -77,6 +84,57 @@ void loop()
 {
     Tracker::instance().loop();
 }
+```
+
+### Using Sleep modes
+
+If you are using sleep modes to maximize battery life, you will want to shut things off when going to sleep, including the temperature and humidity sensor.
+
+Create a callback to be executed before the Tracker goes to sleep, to turn the external power off:
+
+```
+void sleep_cb(TrackerSleepContext ctx)
+{
+    Log.info("putting application to sleep");
+    digitalWrite(CAN_PWR,LOW);          
+}
+```
+
+And a callback to be executed when the Tracker wakes up to turn the power back on:
+
+```
+void wake_cb(TrackerSleepContext ctx)
+{
+    digitalWrite(CAN_PWR,HIGH);
+}
+```
+
+Register the callbacks by adding these two lines to `setup()`:
+
+```
+    TrackerSleep::instance().registerWake(wake_cb);
+    TrackerSleep::instance().registerSleepPrepare(sleep_cb)
+```
+
+And last, make sure that you are not using periodic mode, but rather use the single shot measurement, since the sensor will be off most of the time. So, modify the location callback to be:
+
+```
+void loc_gen_cb(JSONWriter &writer, LocationPoint &point, const void *context)
+{
+    double temp, humid;
+
+    if (sensor.single_shot(&temp, &humid) == 0)
+    {
+        writer.name("sh31_temp").value(temp);
+        writer.name("sh31_humid").value(humid);
+    }
+}
+```
+
+and remove this line from `setup()`:
+
+```
+sensor.start_periodic();
 ```
 
 ## Boron/Argon
