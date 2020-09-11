@@ -45,13 +45,6 @@ SYSTEM_MODE(SEMI_AUTOMATIC);
 PRODUCT_ID(TRACKER_PRODUCT_ID);
 PRODUCT_VERSION(TRACKER_PRODUCT_VERSION);
 
-SerialLogHandler logHandler(115200, LOG_LEVEL_TRACE, {
-    { "app.gps.nmea", LOG_LEVEL_INFO },
-    { "app.gps.ubx",  LOG_LEVEL_INFO },
-    { "ncp.at", LOG_LEVEL_INFO },
-    { "net.ppp.client", LOG_LEVEL_INFO },
-});
-
 Sht3xi2c sensor(Wire3);
 
 void loc_gen_cb(JSONWriter &writer, LocationPoint &point, const void *context)
